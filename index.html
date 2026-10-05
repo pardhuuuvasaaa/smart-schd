@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cast &amp; Render — 3D Object Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://d2ol7oe51mr4n9.cloudfront.net" crossorigin>
+<link rel="preconnect" href="https://interactive-assistan-qwgk.bolt.host" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fg:#0d0c0b;
+  --fg-soft:rgba(13,12,11,.64);
+  --fg-faint:rgba(13,12,11,.42);
+  --shade:#f2f0ec;
+  --rule:rgba(13,12,11,.16);
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --pill-bg:#0a0908;
+  --pill-fg:#ffffff;
+}
+*,*::before,*::after{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+html{
+  -webkit-text-size-adjust:100%;
+}
+body{
+  background:var(--shade);
+  color:var(--fg);
+  font-family:'Inter Tight','Helvetica Neue',Helvetica,Arial,sans-serif;
+  font-weight:400;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  overflow-x:hidden;
+}
+
+.stage{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  overflow:hidden;
+  background:var(--shade);
+}
+.stage video{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:100%;
+  height:100%;
+  transform:translate(-50%,-50%) scale(1.02);
+  object-fit:cover;
+  filter:contrast(1.02);
+  will-change:transform;
+}
+.veil{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    linear-gradient(to bottom, rgba(242,240,236,.62) 0%, rgba(242,240,236,.12) 22%, rgba(242,240,236,.12) 78%, rgba(242,240,236,.66) 100%),
+    radial-gradient(100% 80% at 50% 48%, rgba(242,240,236,0) 0%, rgba(242,240,236,.34) 100%),
+    rgba(242,240,236,.20);
+}
+.grain{
+  position:absolute;
+  inset:-50%;
+  opacity:.13;
+  mix-blend-mode:multiply;
+  pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='.5'/></svg>");
+}
+
+.chrome{
+  position:fixed;
+  left:0;
+  right:0;
+  top:0;
+  z-index:40;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:max(14px, calc(env(safe-area-inset-top, 0px) + 12px)) clamp(16px, 3.4vw, 44px) 14px;
+  background:linear-gradient(to bottom, rgba(242,240,236,.94) 0%, rgba(242,240,236,.78) 72%, rgba(242,240,236,0) 100%);
+}
+.mark{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  font-size:15px;
+  letter-spacing:-.012em;
+  color:var(--fg);
+  min-width:0;
+  flex-shrink:1;
+}
+.mark-star{
+  opacity:.85;
+}
+.nav{
+  display:flex;
+  align-items:center;
+  gap:clamp(12px, 2.2vw, 28px);
+  flex-shrink:0;
+}
+.nav a:not(.pill){
+  color:var(--fg);
+  text-decoration:none;
+  font-size:14.5px;
+  letter-spacing:-.008em;
+  opacity:.88;
+  transition:opacity .3s var(--ease);
+}
+.nav a:not(.pill):hover{
+  opacity:1;
+}
+.sound-toggle{
+  appearance:none;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  height:36px;
+  padding:0 13px;
+  border-radius:999px;
+  border:1px solid var(--rule);
+  background:rgba(242,240,236,.65);
+  color:var(--fg);
+  font-family:inherit;
+  font-size:13px;
+  font-weight:500;
+  letter-spacing:-.006em;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:border-color .3s var(--ease), background .3s var(--ease), transform .3s var(--ease);
+}
+.sound-toggle:hover,
+.sound-toggle:focus-visible{
+  border-color:rgba(13,12,11,.36);
+  background:rgba(242,240,236,.95);
+}
+.sound-toggle:focus-visible{
+  outline:2px solid var(--fg);
+  outline-offset:2px;
+}
+.sound-dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--fg-faint);
+  transition:background .3s var(--ease), transform .3s var(--ease);
+}
+.sound-toggle[aria-pressed="true"] .sound-dot{
+  background:var(--fg);
+  transform:scale(1.2);
+}
+.pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:40px;
+  padding:0 21px;
+  border-radius:999px;
+  background:var(--pill-bg);
+  color:var(--pill-fg);
+  font-size:14.5px;
+  font-weight:500;
+  letter-spacing:-.008em;
+  text-decoration:none;
+  white-space:nowrap;
+  opacity:1;
+  border:1px solid rgba(10,9,8,.12);
+  box-shadow:0 1px 0 rgba(255,255,255,.10) inset;
+  -webkit-text-fill-color:var(--pill-fg);
+  transition:transform .4s var(--ease), background .3s var(--ease), color .3s var(--ease);
+  cursor:pointer;
+}
+.nav .pill{
+  color:#fff;
+  -webkit-text-fill-color:#fff;
+}
+.pill:hover,
+.pill:focus-visible{
+  transform:translateY(-2px);
+  background:#000;
+  color:#fff;
+  -webkit-text-fill-color:#fff;
+}
+.pill:focus-visible{
+  outline:2px solid var(--fg);
+  outline-offset:2px;
+}
+
+.foot{
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  z-index:40;
+  display:flex;
+  justify-content:center;
+  padding:14px clamp(16px, 4vw, 24px) max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px));
+  font-size:12px;
+  line-height:1.45;
+  letter-spacing:.02em;
+  color:var(--fg-faint);
+  text-align:center;
+  pointer-events:none;
+  background:linear-gradient(to top, rgba(242,240,236,.92) 0%, rgba(242,240,236,.72) 72%, rgba(242,240,236,0) 100%);
+}
+
+.meter{
+  position:fixed;
+  top:0;
+  left:0;
+  z-index:80;
+  height:2px;
+  width:100%;
+  transform:scaleX(0);
+  transform-origin:0 50%;
+  background:var(--fg);
+  opacity:.55;
+}
+
+.panels{
+  position:fixed;
+  inset:0;
+  z-index:20;
+  pointer-events:none;
+}
+.panel{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:max(104px, calc(env(safe-area-inset-top, 0px) + 88px)) clamp(20px, 5vw, 60px) max(96px, calc(env(safe-area-inset-bottom, 0px) + 80px));
+  opacity:0;
+  will-change:opacity,transform;
+}
+.eyebrow{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:6px 12px;
+  font-size:12.5px;
+  letter-spacing:.045em;
+  color:var(--fg-soft);
+  margin-bottom:clamp(16px,2vw,22px);
+  max-width:min(46ch, 100%);
+  text-align:center;
+}
+h1{
+  font-weight:400;
+  font-size:clamp(34px, 7.1vw, 104px);
+  line-height:.98;
+  letter-spacing:-.036em;
+  max-width:15ch;
+  text-wrap:balance;
+}
+.sub{
+  margin-top:clamp(18px,2.2vw,28px);
+  font-size:clamp(15px,1.28vw,19px);
+  line-height:1.5;
+  letter-spacing:-.008em;
+  color:var(--fg-soft);
+  max-width:min(46ch, 100%);
+  text-wrap:pretty;
+}
+.cta{
+  margin-top:clamp(28px,3.4vw,44px);
+  pointer-events:auto;
+  width:100%;
+  display:flex;
+  justify-content:center;
+}
+.cta .pill{
+  height:48px;
+  padding:0 27px;
+  font-size:15px;
+  max-width:min(100%, 320px);
+}
+
+/* Attached Website Portal */
+.portal{
+  position:fixed;
+  inset:0;
+  z-index:60;
+  display:flex;
+  flex-direction:column;
+  background:var(--shade);
+  opacity:0;
+  pointer-events:none;
+  will-change:opacity,transform;
+}
+.portal-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:max(10px, calc(env(safe-area-inset-top, 0px) + 8px)) clamp(16px, 3.4vw, 44px) 10px;
+  background:var(--shade);
+  border-bottom:1px solid var(--rule);
+  flex-shrink:0;
+}
+.portal-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.portal-back{
+  appearance:none;
+  border:1px solid var(--rule);
+  background:transparent;
+  color:var(--fg);
+  font-family:inherit;
+  font-size:13.5px;
+  font-weight:500;
+  letter-spacing:-.008em;
+  height:36px;
+  padding:0 15px;
+  border-radius:999px;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background .25s var(--ease), border-color .25s var(--ease);
+}
+.portal-back:hover{
+  background:rgba(13,12,11,.06);
+  border-color:rgba(13,12,11,.32);
+}
+.portal-ext.pill{
+  height:36px;
+  padding:0 16px;
+  font-size:13.5px;
+  color:#fff;
+  -webkit-text-fill-color:#fff;
+}
+.portal-frame{
+  position:relative;
+  flex:1;
+  width:100%;
+  height:100%;
+  border:0;
+  background:#fff;
+}
+
+.boot{
+  position:fixed;
+  inset:0;
+  z-index:90;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+  background:var(--shade);
+  transition:opacity .7s var(--ease), visibility .7s;
+}
+.boot.done{
+  opacity:0;
+  visibility:hidden;
+}
+.boot p{
+  font-size:12.5px;
+  letter-spacing:.05em;
+  color:var(--fg-faint);
+}
+.bar{
+  width:150px;
+  height:1px;
+  background:var(--rule);
+  overflow:hidden;
+}
+.bar i{
+  display:block;
+  height:100%;
+  width:100%;
+  background:var(--fg);
+  transform:scaleX(0);
+  transform-origin:0 50%;
+}
+
+.track{
+  position:relative;
+  z-index:1;
+  height:560vh;
+  min-height:3200px;
+}
+
+@media (max-width:900px){
+  .veil{
+    background:
+      linear-gradient(to bottom, rgba(242,240,236,.72) 0%, rgba(242,240,236,.18) 24%, rgba(242,240,236,.18) 76%, rgba(242,240,236,.74) 100%),
+      radial-gradient(100% 80% at 50% 48%, rgba(242,240,236,0) 0%, rgba(242,240,236,.40) 100%),
+      rgba(242,240,236,.24);
+  }
+}
+
+@media (max-width:720px){
+  .nav a:not(.pill){ display:none; }
+  .mark{ font-size:14px; }
+  .nav .pill{ height:38px; padding:0 16px; font-size:13.5px; }
+  h1{ max-width:12ch; font-size:clamp(30px, 9.8vw, 52px); }
+  .sub{ font-size:15px; max-width:34ch; }
+  .panel{ padding:max(92px, calc(env(safe-area-inset-top, 0px) + 76px)) 18px max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px)); }
+  .foot{ font-size:11px; max-width:34ch; }
+}
+
+@media (max-width:420px){
+  .mark-star{ display:none; }
+  .nav .pill{ height:36px; padding:0 14px; font-size:13px; }
+  .sound-toggle{ height:36px; padding:0 10px; font-size:12px; }
+  h1{ max-width:11ch; font-size:clamp(28px, 10.5vw, 40px); }
+  .eyebrow{ font-size:11px; letter-spacing:.04em; max-width:28ch; }
+  .cta .pill{ width:100%; max-width:280px; height:44px; padding:0 20px; font-size:14px; }
+  .portal-back{ padding:0 12px; font-size:12.5px; }
+  .portal-ext.pill{ padding:0 13px; font-size:12.5px; }
+}
+
+@media (max-height:520px) and (orientation:landscape){
+  .panel{ padding:max(72px, calc(env(safe-area-inset-top, 0px) + 56px)) 24px max(64px, calc(env(safe-area-inset-bottom, 0px) + 48px)); }
+  h1{ font-size:clamp(28px, 8vh, 44px); }
+  .sub{ margin-top:12px; font-size:14px; }
+  .cta{ margin-top:16px; }
+}
+</style>
+</head>
+<body>
+<div class="boot" id="boot">
+  <div class="bar"><i id="bootBar"></i></div>
+  <p id="bootPct">LOADING 0%</p>
+</div>
+
+<div class="stage">
+  <video id="clip" muted playsinline preload="auto" disablepictureinpicture></video>
+  <div class="veil"></div>
+  <div class="grain"></div>
+</div>
+
+<i class="meter" id="meter"></i>
+
+<header class="chrome">
+  <div class="mark"><span class="mark-star" aria-hidden="true">&#10037;</span>&nbsp;Cast &amp; Render</div>
+  <nav class="nav">
+    <a href="https://interactive-assistan-qwgk.bolt.host/" data-attach-link>Works</a>
+    <a href="https://interactive-assistan-qwgk.bolt.host/" data-attach-link>About</a>
+    <button type="button" class="sound-toggle" id="soundToggle" aria-pressed="false" aria-label="Toggle mechanical scrub audio">
+      <span class="sound-dot" aria-hidden="true"></span>
+      <span id="soundLabel">Sound Off</span>
+    </button>
+    <a class="pill" href="https://interactive-assistan-qwgk.bolt.host/" data-attach-link>Start a brief</a>
+  </nav>
+</header>
+
+<main class="panels">
+  <section class="panel" data-panel>
+    <p class="eyebrow">Objects studio <span>&middot;</span> No. 112 Render Lane</p>
+    <h1>Built at four.<br />Out by seven.</h1>
+    <p class="sub">Six kinds of mesh, one render farm, and a queue that starts before the sun does.</p>
+    <div class="cta"><a class="pill" href="https://interactive-assistan-qwgk.bolt.host/" data-attach-link>View the reel</a></div>
+  </section>
+
+  <section class="panel" data-panel>
+    <p class="eyebrow">Across the studio</p>
+    <h1>Flat, never bent.</h1>
+    <p class="sub">The mesh should still be clean when it reaches the viewport. We export to order, never before.</p>
+    <div class="cta"><a class="pill" href="https://interactive-assistan-qwgk.bolt.host/" data-attach-link>Tour our space</a></div>
+  </section>
+
+  <section class="panel" data-panel>
+    <p class="eyebrow">The surface</p>
+    <h1>Smooth enough to<br />hold a light pass.</h1>
+    <p class="sub">Custom surface shaders whipped every morning, spread to the edge and weighed by the quarter pound.</p>
+    <div class="cta"><a class="pill" href="https://interactive-assistan-qwgk.bolt.host/" data-attach-link>Start a brief</a></div>
+  </section>
+</main>
+
+<section class="portal" id="portal" aria-label="Attached application">
+  <div class="portal-bar">
+    <div class="mark"><span class="mark-star" aria-hidden="true">&#10037;</span>&nbsp;Cast &amp; Render</div>
+    <div class="portal-actions">
+      <button type="button" class="portal-back" id="portalBack">&larr; Back to reel</button>
+      <a class="pill portal-ext" href="https://interactive-assistan-qwgk.bolt.host/" target="_blank" rel="noopener noreferrer">Open full site &#8599;</a>
+    </div>
+  </div>
+  <iframe
+    class="portal-frame"
+    id="portalFrame"
+    src="https://interactive-assistan-qwgk.bolt.host/"
+    title="Interactive Assistant"
+    allow="clipboard-write; fullscreen"
+  ></iframe>
+</section>
+
+<footer class="foot">112 Render Lane &nbsp;&middot;&nbsp; Tue–Sun, 9am till sold out</footer>
+
+<div class="track"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // 1920x1080, 10.04s, 241 frames, all-intra — every frame is a keyframe,
+  // which is why a scroll scrub can land on an exact frame instantly.
+  var VIDEO_URL = "https://d2ol7oe51mr4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/45567745-d826-44a2-a5ce-7ef670944e60.mp4";
+  var ATTACHED_URL = "https://interactive-assistan-qwgk.bolt.host/";
+  var TOTAL_FRAMES = 241;
+
+  var clip = document.getElementById("clip");
+  var boot = document.getElementById("boot");
+  var bootBar = document.getElementById("bootBar");
+  var bootPct = document.getElementById("bootPct");
+  var meter = document.getElementById("meter");
+  var portal = document.getElementById("portal");
+  var portalBack = document.getElementById("portalBack");
+  var soundToggle = document.getElementById("soundToggle");
+  var soundLabel = document.getElementById("soundLabel");
+  var panels = [].slice.call(document.querySelectorAll("[data-panel]"));
+  var attachLinks = [].slice.call(document.querySelectorAll("[data-attach-link]"));
+
+  // Each panel owns a slice of scroll as [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd]
+  // in 0..1 page progress. The gaps between one panel's fadeOutEnd and the next's fadeInStart
+  // are deliberate dead zones — video only — so two panels are never readable at once.
+  var CUES = [
+    [0.00, 0.00, 0.14, 0.21],
+    [0.31, 0.38, 0.52, 0.59],
+    [0.68, 0.75, 0.85, 0.91]
+  ];
+  var PORTAL_CUE = [0.93, 0.985];
+  var DRIFT = 22; // px of counter-scroll travel per panel
+
+  function clamp(v, a, b){
+    return v < a ? a : v > b ? b : v;
+  }
+  function smooth(t){
+    return t * t * (3 - 2 * t);
+  }
+  function ramp(p, a, b){
+    if (b <= a) return p >= b ? 1 : 0;
+    return smooth(clamp((p - a) / (b - a), 0, 1));
+  }
+
+  var progress = 0;
+  var seekTo = 0;
+  var seekAt = 0;
+  var duration = 0;
+  var ready = false;
+  var started = false;
+  var attached = false;
+  var forcePortal = false;
+
+  // Web Audio API mechanical clicking/spinning synth — muted by default,
+  // requires explicit user interaction on the Sound button to enable.
+  var audioCtx = null;
+  var noiseBuffer = null;
+  var soundEnabled = false;
+  var lastFrameIndex = 0;
+  var lastTickTime = 0;
+
+  function ensureAudioContext(){
+    if (!audioCtx){
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtx = new Ctx();
+      // Create a short 25ms white-noise buffer for the mechanical escapement click
+      var sampleRate = audioCtx.sampleRate;
+      var length = Math.floor(sampleRate * 0.025);
+      noiseBuffer = audioCtx.createBuffer(1, length, sampleRate);
+      var data = noiseBuffer.getChannelData(0);
+      for (var i = 0; i < length; i++){
+        // Exponentially decaying micro-burst
+        var env = Math.pow(1 - i / length, 2.6);
+        data[i] = (Math.random() * 2 - 1) * env;
+      }
+    }
+    if (audioCtx.state === "suspended"){
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playMechanicalTick(speedFactor){
+    if (!soundEnabled || !audioCtx || audioCtx.state !== "running") return;
+    var nowPerf = performance.now();
+    // Cap maximum tick density to ~55 ticks/sec so fast spins sound like a smooth mechanical reel
+    if (nowPerf - lastTickTime < 18) return;
+    lastTickTime = nowPerf;
+
+    var now = audioCtx.currentTime;
+    var vel = clamp(speedFactor || 0.35, 0.1, 1.0);
+
+    // 1. High-precision escapement click (bandpass-filtered noise burst)
+    if (noiseBuffer){
+      var noise = audioCtx.createBufferSource();
+      noise.buffer = noiseBuffer;
+
+      var filter = audioCtx.createBiquadFilter();
+      filter.type = "bandpass";
+      // Pitch shifts subtly upward as the reel spins faster
+      filter.frequency.setValueAtTime(1950 + vel * 1150, now);
+      filter.Q.setValueAtTime(6.5, now);
+
+      var clickGain = audioCtx.createGain();
+      var peakGain = 0.018 + vel * 0.028;
+      clickGain.gain.setValueAtTime(peakGain, now);
+      clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.016);
+
+      noise.connect(filter);
+      filter.connect(clickGain);
+      clickGain.connect(audioCtx.destination);
+
+      noise.start(now);
+      noise.stop(now + 0.02);
+    }
+
+    // 2. Low-mass anodized rotor body thud (short pitch-dropped triangle impulse)
+    var osc = audioCtx.createOscillator();
+    var bodyGain = audioCtx.createGain();
+    osc.type = "triangle";
+    var baseFreq = 155 + vel * 65;
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(48, now + 0.014);
+
+    bodyGain.gain.setValueAtTime(0.012 + vel * 0.016, now);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.015);
+
+    osc.connect(bodyGain);
+    bodyGain.connect(audioCtx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.016);
+  }
+
+  if (soundToggle){
+    soundToggle.addEventListener("click", function(){
+      var ctx = ensureAudioContext();
+      if (!ctx) return;
+      soundEnabled = !soundEnabled;
+      soundToggle.setAttribute("aria-pressed", soundEnabled ? "true" : "false");
+      if (soundLabel){
+        soundLabel.textContent = soundEnabled ? "Sound On" : "Sound Off";
+      }
+      if (soundEnabled){
+        lastTickTime = 0;
+        playMechanicalTick(0.45);
+      }
+    });
+  }
+
+  function readScroll(){
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    progress = max > 0 ? clamp(window.pageYOffset / max, 0, 1) : 0;
+    if (progress < 0.88 && forcePortal){
+      forcePortal = false;
+    }
+    if (duration) seekTo = progress * duration;
+  }
+
+  function paint(){
+    meter.style.transform = "scaleX(" + progress + ")";
+    for (var i = 0; i < panels.length; i++){
+      var el = panels[i];
+      var c = CUES[i];
+      var enter = ramp(progress, c[0], c[1]);
+      var leave = ramp(progress, c[2], c[3]);
+      var o = enter * (1 - leave);
+      var y = (1 - enter) * DRIFT - leave * DRIFT;
+      el.style.opacity = o;
+      el.style.transform = "translate3d(0," + y + "px,0)";
+      el.style.pointerEvents = o > 0.6 ? "auto" : "none";
+    }
+
+    var pEnter = forcePortal ? 1 : ramp(progress, PORTAL_CUE[0], PORTAL_CUE[1]);
+    var pY = (1 - pEnter) * DRIFT;
+    portal.style.opacity = pEnter;
+    portal.style.transform = "translate3d(0," + pY + "px,0)";
+    portal.style.pointerEvents = pEnter > 0.8 ? "auto" : "none";
+  }
+
+  function openAttachedSite(e){
+    if (e && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)) return;
+    if (e) e.preventDefault();
+    forcePortal = true;
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    window.scrollTo({ top: max, behavior: "smooth" });
+  }
+
+  for (var j = 0; j < attachLinks.length; j++){
+    attachLinks[j].setAttribute("href", ATTACHED_URL);
+    attachLinks[j].addEventListener("click", openAttachedSite);
+  }
+
+  if (portalBack){
+    portalBack.addEventListener("click", function(){
+      forcePortal = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
+  function frame(){
+    if (ready && duration){
+      var gap = seekTo - seekAt;
+      if (Math.abs(gap) > 0.0008){
+        seekAt += gap * 0.115;                      // easing factor — do not change
+        if (clip.readyState >= 2 && !clip.seeking){
+          try { clip.currentTime = seekAt; } catch (e) {}
+        }
+        // Trigger mechanical clicking/spinning sound synced to scrubbed video frames (241 total)
+        var currentFrameIndex = Math.round((seekAt / duration) * TOTAL_FRAMES);
+        if (currentFrameIndex !== lastFrameIndex){
+          var frameDelta = Math.abs(currentFrameIndex - lastFrameIndex);
+          lastFrameIndex = currentFrameIndex;
+          var velocity = clamp(frameDelta / 4, 0.15, 1.0);
+          playMechanicalTick(velocity);
+        }
+      }
+    }
+    paint();
+    requestAnimationFrame(frame);
+  }
+
+  function setProgress(f){
+    var p = clamp(f, 0, 1);
+    bootBar.style.transform = "scaleX(" + p + ")";
+    bootPct.textContent = "LOADING " + Math.round(p * 100) + "%";
+  }
+
+  function start(){
+    if (started) return;
+    started = true;
+    ready = true;
+    boot.classList.add("done");
+    readScroll();
+    seekAt = seekTo;
+    if (duration){
+      lastFrameIndex = Math.round((seekAt / duration) * TOTAL_FRAMES);
+    }
+  }
+
+  function attach(src){
+    if (attached) return;
+    attached = true;
+    clip.addEventListener("loadedmetadata", function(){
+      duration = clip.duration || 0;
+      clip.pause();
+      readScroll();
+      seekAt = seekTo;
+      if (duration){
+        lastFrameIndex = Math.round((seekAt / duration) * TOTAL_FRAMES);
+      }
+      try { clip.currentTime = seekAt; } catch (e) {}
+    });
+    clip.addEventListener("loadeddata", start);
+    clip.addEventListener("canplaythrough", start);
+    clip.addEventListener("error", start);
+    clip.src = src;
+    clip.load();
+    setTimeout(start, 12000);
+  }
+
+  // Fetch the mp4 as a fully buffered blob first, because seeking inside a
+  // buffered blob is near instant while range requests over the network are a slideshow.
+  function preload(){
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var bail = setTimeout(function(){
+      if (!attached){
+        if (ctrl) ctrl.abort();
+        setProgress(1);
+        attach(VIDEO_URL);
+      }
+    }, 15000);
+
+    fetch(VIDEO_URL, ctrl ? { signal: ctrl.signal } : {})
+      .then(function(res){
+        if (!res.ok || !res.body) throw new Error("bad response");
+        var total = parseInt(res.headers.get("content-length") || "0", 10);
+        var reader = res.body.getReader();
+        var chunks = [];
+        var got = 0;
+        function pump(){
+          return reader.read().then(function(r){
+            if (r.done) return new Blob(chunks, { type: "video/mp4" });
+            chunks.push(r.value);
+            got += r.value.byteLength;
+            setProgress(total ? got / total : Math.min(got / 11e6, 0.95));
+            return pump();
+          });
+        }
+        return pump();
+      })
+      .then(function(blob){
+        clearTimeout(bail);
+        setProgress(1);
+        attach(URL.createObjectURL(blob));
+      })
+      .catch(function(){
+        clearTimeout(bail);
+        setProgress(1);
+        attach(VIDEO_URL);
+      });
+  }
+
+  // iOS will not paint a frame from a video that has never been played,
+  // so nudge it once on the first interaction and pause immediately.
+  function unlock(){
+    var p = clip.play();
+    if (p && p.then) p.then(function(){ clip.pause(); }).catch(function(){});
+    else clip.pause();
+  }
+  ["touchstart","pointerdown","wheel","keydown"].forEach(function(ev){
+    window.addEventListener(ev, unlock, { once:true, passive:true });
+  });
+
+  window.addEventListener("scroll", readScroll, { passive:true });
+  window.addEventListener("resize", readScroll);
+
+  readScroll();
+  paint();
+  preload();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
